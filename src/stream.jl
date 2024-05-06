@@ -225,6 +225,9 @@ function initialize_streaming!(self_streams, spec, task)
     end
 end
 
+"""
+My docs go here!
+"""
 function spawn_streaming(f::Base.Callable)
     queue = StreamingTaskQueue()
     result = with_options(f; task_queue=queue)
