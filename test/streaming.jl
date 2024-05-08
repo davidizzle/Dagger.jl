@@ -3,7 +3,7 @@
 @everywhere using Dagger
 @everywhere using Test
 
-#@everywhere ENV["JULIA_DEBUG"] = "Dagger"
+@everywhere ENV["JULIA_DEBUG"] = "Dagger"
 @everywhere function rand_finite()
     x = rand()
     if x < 0.1
@@ -25,7 +25,7 @@ function catch_interrupt(f)
 end
 function test_finishes(f, message::String; ignore_timeout=false)
     t = @eval Threads.@spawn @testset $message catch_interrupt($f)
-    if timedwait(()->istaskdone(t), 10) == :timed_out
+    if timedwait(()->istaskdone(t), 5) == :timed_out
         if !ignore_timeout
             @warn "Testing task timed out: $message"
         end
@@ -65,7 +65,7 @@ end
         fetch(x)
     end
 
-    trd_idxs = [1 2 1 1; 1 2 3 4; 1 1 1 1; 1 2 3 4]
+    trd_idxs = [1 1 1 1; 1 2 3 4; 1 1 1 1; 1 2 3 4]
     wkr_idxs = [1 1 1 1; 1 1 1 1; 1 2 3 4; 1 2 3 4]
     addprocs(4)
     @everywhere using Dagger
