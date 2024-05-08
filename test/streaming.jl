@@ -65,21 +65,20 @@ end
         fetch(x)
     end
 
-    indices = [1 1 1 1; 1 2 3 4]
+    trd_idxs = [1 2 1 1; 1 2 3 4; 1 1 1 1; 1 2 3 4]
+    wkr_idxs = [1 1 1 1; 1 1 1 1; 1 2 3 4; 1 2 3 4]
     addprocs(4)
     @everywhere using Dagger
     @everywhere using Distributed
     for idx in 1:4
-        # Add workers, as we are going to loop over different combination: 1 thread 1 worker, many threads
+        # Add workers, as we are going to loop over different combinations
 
-        local worker_idx = 1 + div(idx - 1, 2)
-        local thread_idx = 1 + mod(idx + 1, 2)
-        scp1 = Dagger.scope(worker = indices[worker_idx, 1], thread = indices[thread_idx, 1])
-        scp2 = Dagger.scope(worker = indices[worker_idx, 2], thread = indices[thread_idx, 2])
-        scp3 = Dagger.scope(worker = indices[worker_idx, 3], thread = indices[thread_idx, 3])
-        scp4 = Dagger.scope(worker = indices[worker_idx, 4], thread = indices[thread_idx, 4])
-
-
+        scp1 = Dagger.scope(worker = wkr_idxs[idx, 1], thread = trd_idxs[idx, 1])
+        scp2 = Dagger.scope(worker = wkr_idxs[idx, 2], thread = trd_idxs[idx, 2])
+        scp3 = Dagger.scope(worker = wkr_idxs[idx, 3], thread = trd_idxs[idx, 3])
+        scp4 = Dagger.scope(worker = wkr_idxs[idx, 4], thread = trd_idxs[idx, 4])
+        println(string(wkr_idxs[idx, 1]) * " " * string(trd_idxs[idx, 1]) )
+        println(scp1, scp2, scp3, scp4)
         @test test_finishes("Two tasks (sequential)") do
             local x, y
             Dagger.spawn_streaming() do
