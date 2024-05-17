@@ -7,7 +7,13 @@ function errormonitor_tracked(name::String, t::Task)
     errormonitor(Threads.@spawn begin
         try
             wait(t)
-        finally
+        catch err
+	    if err isa InterruptException
+		return
+	    end 
+	    @error "Error in tracked task $name" exception = (err, catch_backtrace())
+	    rethrow(err) 
+	finally
             lock(ERRORMONITOR_TRACKED) do tracked
                 idx = findfirst(o->o[2]===t, tracked)
                 # N.B. This may be nothing if precompile emptied these

@@ -21,6 +21,7 @@ function stream_fetch_values!(::Type{RemoteFetcher}, T, store_ref::Chunk{Store_r
         return values
     end::Vector{T}
     if isempty(values)
+        sleep(0.5)
         @goto fetch_values
     end
 

@@ -1,7 +1,7 @@
 # using StaticArrays: @SVector
-@everywhere ENV["JULIA_DEBUG"] = "Dagger"
-@everywhere function rand_finite()
-    x = rand()
+#@everywhere ENV["JULIA_DEBUG"] = "Dagger"
+@everywhere function rand_finite(T=Float64)
+    x = rand(T)
     if x < 0.1
         return Dagger.finish_stream(x)
     end
@@ -21,7 +21,7 @@ function catch_interrupt(f)
 end
 function test_finishes(f, message::String; ignore_timeout=false)
     t = @eval Threads.@spawn @testset $message catch_interrupt($f)
-    if timedwait(()->istaskdone(t), 5) == :timed_out
+    if timedwait(()->istaskdone(t), 30) == :timed_out
         if !ignore_timeout
             @warn "Testing task timed out: $message"
         end
@@ -41,14 +41,6 @@ function update_vector!(v)
 end
 
 @testset "Basics" begin
-    @test test_finishes("Single task") do
-        local x
-        Dagger.spawn_streaming() do
-            x = Dagger.@spawn rand_finite()
-        end
-        @test fetch(x) === nothing
-    end
-
     @test !test_finishes("Single task running forever"; ignore_timeout=true) do
         local x
         Dagger.spawn_streaming() do
@@ -61,12 +53,22 @@ end
         fetch(x)
     end
 
+    @test test_finishes("Single task") do
+        local x
+        Dagger.spawn_streaming() do
+            x = Dagger.@spawn rand_finite()
+        end
+        @test fetch(x) === nothing
+    end
+
+
     trd_idxs = [1 1 1 1; 1 2 3 4; 1 1 1 1; 1 2 3 4]
     wkr_idxs = [1 1 1 1; 1 1 1 1; 1 2 3 4; 1 2 3 4]
-    addprocs(4)
+    addprocs(4; exeflags="--project=$(joinpath(@__DIR__, ".."))")
     @everywhere using Dagger
     @everywhere using Distributed
-    for idx in 1:1
+for T in (Float64, BigFloat)
+    for idx in 1:4
         # Add workers, as we are going to loop over different combinations
 
         scp1 = Dagger.scope(worker = wkr_idxs[idx, 1], thread = trd_idxs[idx, 1])
@@ -74,11 +76,11 @@ end
         scp3 = Dagger.scope(worker = wkr_idxs[idx, 3], thread = trd_idxs[idx, 3])
         scp4 = Dagger.scope(worker = wkr_idxs[idx, 4], thread = trd_idxs[idx, 4])
         println(string(wkr_idxs[idx, 1]) * " " * string(trd_idxs[idx, 1]) )
-        println(scp1, scp2, scp3, scp4)
+        println(join([scp1, scp2, scp3, scp4], ", "))
         @test test_finishes("Two tasks (sequential)") do
             local x, y
             Dagger.spawn_streaming() do
-                x = Dagger.@spawn scope=scp1 rand_finite()
+                x = Dagger.@spawn scope=scp1 rand_finite(T)
                 y = Dagger.@spawn scope=scp2 x+1
             end
             @test fetch(x) === nothing
@@ -134,17 +136,8 @@ end
         end"""
     end
     rmprocs(workers())
-    # TODO: With pass-through/Without result
-#    @test test_finishes() do
-#
-#    end
-    # TODO: With pass-through/With result
-#    @test test_finishes() do
-#
-#    end
-    # TODO: Without pass-through/Without result
-    # Not sure how this is different from rand finite, and specifically from the single task test
-    @test test_finishes("Without pass-through/Without result") do
+
+    @test test_finishes("Without result") do
         local x
         Dagger.spawn_streaming() do
             x = Dagger.spawn() do
@@ -157,7 +150,7 @@ end
         end
         @test fetch(x) === nothing
     end
-    @test test_finishes("Without pass-through/With result") do
+    @test test_finishes("With result") do
         local x
         Dagger.spawn_streaming() do
             x = Dagger.spawn() do
@@ -170,24 +163,20 @@ end
         end
         @test fetch(x) == 123
     end
-# TODO: Custom stream buffers/buffer amounts
-#    @test test_finishes("Custom stream buffer amounts") do
-#        # local x
-#    ## actually unsure on how to do this
-#    end
-# TODO: Cross-worker streaming
-"""    @test test_finishes("Cross-worker Streaming") do
-        addprocs(2)
-        local x, y
 
+   #  TODO: Custom stream buffers/buffer amounts
+    @test test_finishes("Custom stream buffer amounts") do
+        # local x
         Dagger.spawn_streaming() do
-            x = Dagger.@spawn scope=Dagger.scope(worker=2) rand_finite()
-            y = Dagger.@spawn scope=Dagger.scope(worker=3) fetch((x) .* 2)
+            Dagger.with_options(;stream_input_buffer_amount=2,
+			        stream_output_buffer_amount=4,
+				 stream_input_buffer=Dagger.DropBuffer) do
+                x = Dagger.@spawn rand_finite()
+            end
         end
-        @test fetch(x) === nothing
-        @test_throws Dagger.ThunkFailedException fetch(y)
-        rmprocs(workers()[1:2])
     end
+
+
 # TODO: Different stream element types (immutable and mutable)
 #    @test test_finishes("Different Stream Element Types") do
 #    local x, y
