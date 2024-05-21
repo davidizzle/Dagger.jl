@@ -1,9 +1,16 @@
 # using StaticArrays: @SVector
-#@everywhere ENV["JULIA_DEBUG"] = "Dagger"
+@everywhere ENV["JULIA_DEBUG"] = "Dagger"
 @everywhere function rand_finite(T=Float64)
     x = rand(T)
     if x < 0.1
         return Dagger.finish_stream(x)
+    end
+    return x
+end
+@everywhere function rand_finite_returns(T=Float64)
+    x = rand(T)
+    if x < 0.1
+        return Dagger.finish_stream(x; result=x)
     end
     return x
 end
@@ -61,13 +68,11 @@ end
         @test fetch(x) === nothing
     end
 
-
     trd_idxs = [1 1 1 1; 1 2 3 4; 1 1 1 1; 1 2 3 4]
     wkr_idxs = [1 1 1 1; 1 1 1 1; 1 2 3 4; 1 2 3 4]
     addprocs(4; exeflags="--project=$(joinpath(@__DIR__, ".."))")
     @everywhere using Dagger
     @everywhere using Distributed
-for T in (Float64, BigFloat)
     for idx in 1:4
         # Add workers, as we are going to loop over different combinations
 
@@ -77,17 +82,18 @@ for T in (Float64, BigFloat)
         scp4 = Dagger.scope(worker = wkr_idxs[idx, 4], thread = trd_idxs[idx, 4])
         println(string(wkr_idxs[idx, 1]) * " " * string(trd_idxs[idx, 1]) )
         println(join([scp1, scp2, scp3, scp4], ", "))
-        @test test_finishes("Two tasks (sequential)") do
+
+        @test test_finishes("Two tasks (sequential) | W: $(wkr_idxs[idx,4]), T: $(trd_idxs[idx,4])") do
             local x, y
             Dagger.spawn_streaming() do
-                x = Dagger.@spawn scope=scp1 rand_finite(T)
+                x = Dagger.@spawn scope=scp1 rand_finite()
                 y = Dagger.@spawn scope=scp2 x+1
             end
             @test fetch(x) === nothing
             @test_throws Dagger.ThunkFailedException fetch(y)
         end
 
-        @test test_finishes("Two tasks (parallel)") do
+        @test test_finishes("Two tasks (parallel) | W: $(wkr_idxs[idx,4]), T: $(trd_idxs[idx,4])") do
             local x, y
             Dagger.spawn_streaming() do
                 x = Dagger.@spawn scope=scp1 rand_finite()
@@ -96,112 +102,111 @@ for T in (Float64, BigFloat)
             @test fetch(x) === nothing
             @test fetch(y) === nothing
         end
-"""        # TODO: Three tasks (2 -> 1)
-        @test test_finishes("Three tasks (2 -> 1)") do
+
+        @test test_finishes("Three tasks (2 -> 1) | W: $(wkr_idxs[idx,4]), T: $(trd_idxs[idx,4])") do
             local x,y,z
             Dagger.spawn_streaming() do
                 x = Dagger.@spawn scope=scp1 rand_finite()
                 y = Dagger.@spawn scope=scp2 rand_finite()
-                z = Dagger.@spawn scope=scp3 ( x + y )
+                z = Dagger.@spawn scope=scp3 x + y 
             end
             @test fetch(x) === nothing
             @test fetch(y) === nothing
             @test_throws Dagger.ThunkFailedException fetch(z)
         end
-        # TODO: Three tasks (1 -> 2)
-        @test test_finishes("Three tasks (1 -> 2)") do
+
+        @test test_finishes("Three tasks (1 -> 2) | W: $(wkr_idxs[idx,4]), T: $(trd_idxs[idx,4])") do
             local x,y,z
             Dagger.spawn_streaming() do
                 x = Dagger.@spawn scope=scp1 rand_finite()
-                y = Dagger.@spawn scope=scp2 ( x * 2 )
-                z = Dagger.@spawn scope=scp3 ( x + 2 )
+                y = Dagger.@spawn scope=scp2  x * 2 
+                z = Dagger.@spawn scope=scp3  x + 2 
             end
             @test fetch(x) === nothing
             @test_throws Dagger.ThunkFailedException fetch(y)
             @test_throws Dagger.ThunkFailedException fetch(z)
         end
-        # TODO: Four tasks (diamond)
-        @test test_finishes("Four tasks (diamond)") do
+
+        @test test_finishes("Four tasks (diamond) | W: $(wkr_idxs[idx,4]), T: $(trd_idxs[idx,4])") do
             local x, y, z, w
             Dagger.spawn_streaming() do
                 x = Dagger.@spawn scope=scp1 rand_finite()
-                y = Dagger.@spawn scope=scp2 ( x * 2 )
-                z = Dagger.@spawn scope=scp3 ( x + 2 )
-                w = Dagger.@spawn scope=scp4 ( y * z - 3 )
+                y = Dagger.@spawn scope=scp2 x * 2
+                z = Dagger.@spawn scope=scp3 x + 2
+                w = Dagger.spawn(scope=scp4, y, z) do y, z
+                    y * z - 3
+                end
             end
             @test fetch(x) === nothing
             @test_throws Dagger.ThunkFailedException fetch(y)
             @test_throws Dagger.ThunkFailedException fetch(z)
             @test_throws Dagger.ThunkFailedException fetch(w)
-        end"""
+        end
+
+        for T in (Float64, Int32, BigFloat)
+            @test test_finishes("Various elements types | W: $(wkr_idxs[idx,4]), T: $(trd_idxs[idx,4])") do
+                local x, y
+                Dagger.spawn_streaming() do
+                    x = Dagger.@spawn scope=scp1 rand_finite_returns(T)
+                    y = Dagger.@spawn scope=scp2 x+1
+                end
+                @test fetch(x) isa T
+                @test_throws Dagger.ThunkFailedException fetch(y)
+            end
+        end
+
+        @test test_finishes("Return without result | W: $(wkr_idxs[idx,4]), T: $(trd_idxs[idx,4])") do
+            local x
+            Dagger.spawn_streaming() do
+                x = Dagger.spawn() do
+                    x = rand()
+                    if x < 0.1
+                        return Dagger.finish_stream(x)
+                    end
+                    return x
+                end
+            end
+            @test fetch(x) === nothing
+        end
+        @test test_finishes("Return with result | W: $(wkr_idxs[idx,4]), T: $(trd_idxs[idx,4])") do
+            local x
+            Dagger.spawn_streaming() do
+                x = Dagger.spawn() do
+                   x = rand()
+                    if x < 0.1
+                        return Dagger.finish_stream(x; result=123)
+                    end
+                    return x
+                end
+            end
+            @test fetch(x) == 123
+        end
+
+        for input_amount in (1,2), output_amount in (1,2)
+            @test test_finishes("Custom stream buffer amounts | W: $(wkr_idxs[idx,4]), T: $(trd_idxs[idx,4])") do
+                local x, y
+                Dagger.spawn_streaming() do
+                    Dagger.with_options(;stream_input_buffer_amount=input_amount,
+                                         stream_output_buffer_amount=output_amount) do
+                        x = Dagger.@spawn rand_finite()
+                        y = Dagger.@spawn x+1
+                    end
+                end
+                @test fetch(x) === nothing
+                @test_throws Dagger.ThunkFailedException fetch(y)
+            end
+        end
+
+        #= TODO: Zero-allocation test
+        # First execution of a streaming task will almost guaranteed allocate (compiling, setup, etc.)
+        # BUT, second and later executions could possibly not allocate any further ("steady-state")
+        # We want to be able to validate that the steady-state execution for certain tasks is non-allocating
+        # allocations = @allocated update_vector!(v)
+        =#
     end
     rmprocs(workers())
-
-    @test test_finishes("Without result") do
-        local x
-        Dagger.spawn_streaming() do
-            x = Dagger.spawn() do
-                x = rand()
-                if x < 0.1
-                    return Dagger.finish_stream(x)
-                end
-                return x
-            end
-        end
-        @test fetch(x) === nothing
-    end
-    @test test_finishes("With result") do
-        local x
-        Dagger.spawn_streaming() do
-            x = Dagger.spawn() do
-               x = rand()
-                if x < 0.1
-                    return Dagger.finish_stream(x; result=123)
-                end
-                return x
-            end
-        end
-        @test fetch(x) == 123
-    end
-
-   #  TODO: Custom stream buffers/buffer amounts
-    @test test_finishes("Custom stream buffer amounts") do
-        # local x
-        Dagger.spawn_streaming() do
-            Dagger.with_options(;stream_input_buffer_amount=2,
-			        stream_output_buffer_amount=4,
-				 stream_input_buffer=Dagger.DropBuffer) do
-                x = Dagger.@spawn rand_finite()
-            end
-        end
-    end
-
-
-# TODO: Different stream element types (immutable and mutable)
-#    @test test_finishes("Different Stream Element Types") do
-#    local x, y
-#
-#    Dagger.spawn_streaming() do
-#        # Immutable data type, e.g. a tuple
-#        x = Dagger.spawn do
-#            x = ("one", 2.0, 3)
-#            return x
-#        end
-#        # Mutable data type, e.g. an array
-#        y = Dagger.spawn do
-#            y = [1, 2, 3]
-#        end
-#     end
-#     # Check data integrity
-#     @test typeof(fetch(x)) === Tuple
-#        @test fetch(x) == ("one", 2.0, 3)
-#        @test fetch(y) == [1, 2, 3]
-#        @test typeof(fetch(y)) == Array
-
+end
 # TODO: Zero-allocation examples
 #    v = @SVector [0,1,2]
-#    allocations = @allocated update_vector!(v)
 #    @test allocations == 0
 #    @test v == @SVector [1,2,3]"""
-end
-# FIXME: Streaming across threads
