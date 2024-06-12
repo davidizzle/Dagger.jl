@@ -1,4 +1,6 @@
 struct RemoteFetcher end
+function stream_push_values!(::Type{RemoteFetcher}, T, store, buffer, id::UInt)
+end
 function stream_fetch_values!(::Type{RemoteFetcher}, T, store_ref::Chunk{Store_remote}, buffer::Blocal, id::UInt) where {Store_remote, Blocal}
     thunk_id = STREAM_THUNK_ID[]
     @dagdebug thunk_id :stream "fetching values"

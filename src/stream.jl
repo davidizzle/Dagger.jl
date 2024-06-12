@@ -25,12 +25,13 @@ function Base.put!(store::StreamStore{T,B}, value) where {T,B}
             throw(InvalidStateException("Stream is closed", :closed))
         end
         @dagdebug thunk_id :stream "adding $value"
-        for buffer in values(store.buffers)
+        for id, buffer in store.buffers
             while isfull(buffer)
                 @dagdebug thunk_id :stream "buffer full, waiting"
                 wait(store.lock)
             end
             put!(buffer, value)
+            stream_push_values!(RemoteFetcher, T, store, buffer, id)
         end
         notify(store.lock)
     end
