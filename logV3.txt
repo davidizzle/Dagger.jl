@@ -1,0 +1,534 @@
+
+Test Summary:               | Time
+Single task running forever | None  30.9s
+Test Summary: | Pass  Total  Time
+Single task   |    1      1  0.3s
+1 1
+ExactScope: processor == ThreadProc(1, 1), ExactScope: processor == ThreadProc(1, 1), ExactScope: processor == ThreadProc(1, 1), ExactScope: processor == ThreadProc(1, 1)
+Test Summary:                       | Pass  Total  Time
+Two tasks (sequential) | W: 1, T: 1 |    2      2  2.5s
+Test Summary:                     | Pass  Total  Time
+Two tasks (parallel) | W: 1, T: 1 |    2      2  0.0s
+Three tasks (2 -> 1) | W: 1, T: 1: Error During Test at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:114
+  Test threw exception
+  Expression: fetch(y) === nothing
+  SchedulingException (Scheduler exited)
+  Stacktrace:
+   [1] fetch(t::Dagger.ThunkFuture; proc::OSProc, raw::Bool)
+     @ Dagger /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:16
+   [2] fetch
+     @ /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:11 [inlined]
+   [3] #fetch#76
+     @ /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:77 [inlined]
+   [4] fetch(t::Dagger.EagerThunk)
+     @ Dagger /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:73
+   [5] macro expansion
+     @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:669 [inlined]
+   [6] (::var"#29#74"{ExactScope, ExactScope, ExactScope})()
+     @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:114
+Test Summary:                     | Pass  Error  Total   Time
+Three tasks (2 -> 1) | W: 1, T: 1 |    2      1      3  30.7s
+Basics: Test Failed at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:106
+  Expression: test_finishes("Three tasks (2 -> 1) | W: $(wkr_idxs[idx, 4]), T: $(trd_idxs[idx, 4])") do 
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:107 =#
+    local x, y, z
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:108 =#
+    Dagger.spawn_streaming() do 
+        #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:109 =#
+        x = #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:109 =# Dagger.@spawn(scope = scp1, rand_finite())
+        #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:110 =#
+        y = #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:110 =# Dagger.@spawn(scope = scp2, rand_finite())
+        #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:111 =#
+        z = #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:111 =# Dagger.@spawn(scope = scp3, x + y)
+    end
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:113 =#
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:113 =# @test fetch(x) === nothing
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:114 =#
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:114 =# @test fetch(y) === nothing
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:115 =#
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:115 =# @test_throws Dagger.ThunkFailedException fetch(z)
+end
+
+Stacktrace:
+ [1] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:672 [inlined]
+ [2] macro expansion
+   @ /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:106 [inlined]
+ [3] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:1577 [inlined]
+ [4] top-level scope
+   @ /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:51
+Three tasks (1 -> 2) | W: 1, T: 1: Error During Test at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:125
+  Test threw exception
+  Expression: fetch(x) === nothing
+  SchedulingException (Scheduler exited)
+  Stacktrace:
+   [1] fetch(t::Dagger.ThunkFuture; proc::OSProc, raw::Bool)
+     @ Dagger /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:16
+   [2] fetch
+     @ /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:11 [inlined]
+   [3] #fetch#76
+     @ /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:77 [inlined]
+   [4] fetch(t::Dagger.EagerThunk)
+     @ Dagger /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:73
+   [5] macro expansion
+     @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:669 [inlined]
+   [6] (::var"#34#79"{ExactScope, ExactScope, ExactScope})()
+     @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:125
+Three tasks (1 -> 2) | W: 1, T: 1: Test Failed at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:126
+  Expression: fetch(y)
+    Expected: Dagger.ThunkFailedException
+      Thrown: Dagger.Sch.SchedulingException
+
+Stacktrace:
+ [1] (::var"#34#79"{ExactScope, ExactScope, ExactScope})()
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:126
+ [2] catch_interrupt(f::var"#34#79"{ExactScope, ExactScope, ExactScope})
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:19
+ [3] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:1577 [inlined]
+ [4] (::var"#115#116")()
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:30
+Three tasks (1 -> 2) | W: 1, T: 1: Test Failed at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:127
+  Expression: fetch(z)
+    Expected: Dagger.ThunkFailedException
+      Thrown: Dagger.Sch.SchedulingException
+
+Stacktrace:
+ [1] (::var"#34#79"{ExactScope, ExactScope, ExactScope})()
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:127
+ [2] catch_interrupt(f::var"#34#79"{ExactScope, ExactScope, ExactScope})
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:19
+ [3] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:1577 [inlined]
+ [4] (::var"#115#116")()
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:30
+Test Summary:                     | Fail  Error  Total   Time
+Three tasks (1 -> 2) | W: 1, T: 1 |    2      1      3  30.5s
+Basics: Test Failed at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:118
+  Expression: test_finishes("Three tasks (1 -> 2) | W: $(wkr_idxs[idx, 4]), T: $(trd_idxs[idx, 4])") do 
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:119 =#
+    local x, y, z
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:120 =#
+    Dagger.spawn_streaming() do 
+        #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:121 =#
+        x = #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:121 =# Dagger.@spawn(scope = scp1, rand_finite())
+        #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:122 =#
+        y = #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:122 =# Dagger.@spawn(scope = scp2, x * 2)
+        #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:123 =#
+        z = #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:123 =# Dagger.@spawn(scope = scp3, x + 2)
+    end
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:125 =#
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:125 =# @test fetch(x) === nothing
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:126 =#
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:126 =# @test_throws Dagger.ThunkFailedException fetch(y)
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:127 =#
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:127 =# @test_throws Dagger.ThunkFailedException fetch(z)
+end
+
+Stacktrace:
+ [1] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:672 [inlined]
+ [2] macro expansion
+   @ /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:118 [inlined]
+ [3] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:1577 [inlined]
+ [4] top-level scope
+   @ /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:51
+Four tasks (diamond) | W: 1, T: 1: Error During Test at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:140
+  Test threw exception
+  Expression: fetch(x) === nothing
+  SchedulingException (Scheduler exited)
+  Stacktrace:
+   [1] fetch(t::Dagger.ThunkFuture; proc::OSProc, raw::Bool)
+     @ Dagger /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:16
+   [2] fetch
+     @ /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:11 [inlined]
+   [3] #fetch#76
+     @ /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:77 [inlined]
+   [4] fetch(t::Dagger.EagerThunk)
+     @ Dagger /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:73
+   [5] macro expansion
+     @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:669 [inlined]
+   [6] (::var"#39#84"{ExactScope, ExactScope, ExactScope, ExactScope})()
+     @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:140
+Four tasks (diamond) | W: 1, T: 1: Test Failed at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:141
+  Expression: fetch(y)
+    Expected: Dagger.ThunkFailedException
+      Thrown: Dagger.Sch.SchedulingException
+
+Stacktrace:
+ [1] (::var"#39#84"{ExactScope, ExactScope, ExactScope, ExactScope})()
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:141
+ [2] catch_interrupt(f::var"#39#84"{ExactScope, ExactScope, ExactScope, ExactScope})
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:19
+ [3] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:1577 [inlined]
+ [4] (::var"#117#118")()
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:30
+Four tasks (diamond) | W: 1, T: 1: Test Failed at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:142
+  Expression: fetch(z)
+    Expected: Dagger.ThunkFailedException
+      Thrown: Dagger.Sch.SchedulingException
+
+Stacktrace:
+ [1] (::var"#39#84"{ExactScope, ExactScope, ExactScope, ExactScope})()
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:142
+ [2] catch_interrupt(f::var"#39#84"{ExactScope, ExactScope, ExactScope, ExactScope})
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:19
+ [3] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:1577 [inlined]
+ [4] (::var"#117#118")()
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:30
+Four tasks (diamond) | W: 1, T: 1: Test Failed at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:143
+  Expression: fetch(w)
+    Expected: Dagger.ThunkFailedException
+      Thrown: Dagger.Sch.SchedulingException
+
+Stacktrace:
+ [1] (::var"#39#84"{ExactScope, ExactScope, ExactScope, ExactScope})()
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:143
+ [2] catch_interrupt(f::var"#39#84"{ExactScope, ExactScope, ExactScope, ExactScope})
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:19
+ [3] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:1577 [inlined]
+ [4] (::var"#117#118")()
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:30
+Test Summary:                     | Fail  Error  Total   Time
+Four tasks (diamond) | W: 1, T: 1 |    3      1      4  30.5s
+Basics: Test Failed at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:130
+  Expression: test_finishes("Four tasks (diamond) | W: $(wkr_idxs[idx, 4]), T: $(trd_idxs[idx, 4])") do 
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:131 =#
+    local x, y, z, w
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:132 =#
+    Dagger.spawn_streaming() do 
+        #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:133 =#
+        x = #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:133 =# Dagger.@spawn(scope = scp1, rand_finite())
+        #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:134 =#
+        y = #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:134 =# Dagger.@spawn(scope = scp2, x * 2)
+        #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:135 =#
+        z = #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:135 =# Dagger.@spawn(scope = scp3, x + 2)
+        #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:136 =#
+        w = Dagger.spawn(scope = scp4, y, z) do y, z
+                #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:137 =#
+                y * z - 3
+            end
+    end
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:140 =#
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:140 =# @test fetch(x) === nothing
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:141 =#
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:141 =# @test_throws Dagger.ThunkFailedException fetch(y)
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:142 =#
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:142 =# @test_throws Dagger.ThunkFailedException fetch(z)
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:143 =#
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:143 =# @test_throws Dagger.ThunkFailedException fetch(w)
+end
+
+Stacktrace:
+ [1] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:672 [inlined]
+ [2] macro expansion
+   @ /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:130 [inlined]
+ [3] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:1577 [inlined]
+ [4] top-level scope
+   @ /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:51
+Test Summary:                       | Pass  Total  Time
+Various elements types | W: 1, T: 1 |    2      2  1.1s
+Test Summary:                       | Pass  Total  Time
+Various elements types | W: 1, T: 1 |    2      2  0.8s
+Test Summary:                       | Pass  Total  Time
+Various elements types | W: 1, T: 1 |    2      2  0.8s
+Test Summary:                      | Pass  Total  Time
+Return without result | W: 1, T: 1 |    1      1  0.1s
+Test Summary:                   | Pass  Total  Time
+Return with result | W: 1, T: 1 |    1      1  0.1s
+Test Summary:                             | Pass  Total  Time
+Custom stream buffer amounts | W: 1, T: 1 |    2      2  1.2s
+Custom stream buffer amounts | W: 1, T: 1: Error During Test at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:195
+  Test threw exception
+  Expression: fetch(x) === nothing
+  SchedulingException (Scheduler exited)
+  Stacktrace:
+   [1] fetch(t::Dagger.ThunkFuture; proc::OSProc, raw::Bool)
+     @ Dagger /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:16
+   [2] fetch
+     @ /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:11 [inlined]
+   [3] #fetch#76
+     @ /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:77 [inlined]
+   [4] fetch(t::Dagger.EagerThunk)
+     @ Dagger /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:73
+   [5] macro expansion
+     @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:669 [inlined]
+   [6] (::var"#55#100"{Int64, Int64})()
+     @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:195
+Custom stream buffer amounts | W: 1, T: 1: Test Failed at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:196
+  Expression: fetch(y)
+    Expected: Dagger.ThunkFailedException
+      Thrown: Dagger.Sch.SchedulingException
+
+Stacktrace:
+ [1] (::var"#55#100"{Int64, Int64})()
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:196
+ [2] catch_interrupt(f::var"#55#100"{Int64, Int64})
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:19
+ [3] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:1577 [inlined]
+ [4] (::var"#131#132")()
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:30
+Test Summary:                             | Fail  Error  Total   Time
+Custom stream buffer amounts | W: 1, T: 1 |    1      1      2  30.5s
+Basics: Test Failed at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:186
+  Expression: test_finishes("Custom stream buffer amounts | W: $(wkr_idxs[idx, 4]), T: $(trd_idxs[idx, 4])") do 
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:187 =#
+    local x, y
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:188 =#
+    Dagger.spawn_streaming() do 
+        #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:189 =#
+        Dagger.with_options(; stream_input_buffer_amount = input_amount, stream_output_buffer_amount = output_amount) do 
+            #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:191 =#
+            x = #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:191 =# Dagger.@spawn(rand_finite())
+            #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:192 =#
+            y = #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:192 =# Dagger.@spawn(x + 1)
+        end
+    end
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:195 =#
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:195 =# @test fetch(x) === nothing
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:196 =#
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:196 =# @test_throws Dagger.ThunkFailedException fetch(y)
+end
+
+Stacktrace:
+ [1] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:672 [inlined]
+ [2] macro expansion
+   @ /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:186 [inlined]
+ [3] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:1577 [inlined]
+ [4] top-level scope
+   @ /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:51
+Test Summary:                             | Pass  Total  Time
+Custom stream buffer amounts | W: 1, T: 1 |    2      2  0.5s
+Custom stream buffer amounts | W: 1, T: 1: Error During Test at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:195
+  Test threw exception
+  Expression: fetch(x) === nothing
+  SchedulingException (Scheduler exited)
+  Stacktrace:
+   [1] fetch(t::Dagger.ThunkFuture; proc::OSProc, raw::Bool)
+     @ Dagger /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:16
+   [2] fetch
+     @ /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:11 [inlined]
+   [3] #fetch#76
+     @ /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:77 [inlined]
+   [4] fetch(t::Dagger.EagerThunk)
+     @ Dagger /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:73
+   [5] macro expansion
+     @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:669 [inlined]
+   [6] (::var"#55#100"{Int64, Int64})()
+     @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:195
+Custom stream buffer amounts | W: 1, T: 1: Test Failed at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:196
+  Expression: fetch(y)
+    Expected: Dagger.ThunkFailedException
+      Thrown: Dagger.Sch.SchedulingException
+
+Stacktrace:
+ [1] (::var"#55#100"{Int64, Int64})()
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:196
+ [2] catch_interrupt(f::var"#55#100"{Int64, Int64})
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:19
+ [3] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:1577 [inlined]
+ [4] (::var"#135#136")()
+   @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:30
+Test Summary:                             | Fail  Error  Total   Time
+Custom stream buffer amounts | W: 1, T: 1 |    1      1      2  30.5s
+Basics: Test Failed at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:186
+  Expression: test_finishes("Custom stream buffer amounts | W: $(wkr_idxs[idx, 4]), T: $(trd_idxs[idx, 4])") do 
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:187 =#
+    local x, y
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:188 =#
+    Dagger.spawn_streaming() do 
+        #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:189 =#
+        Dagger.with_options(; stream_input_buffer_amount = input_amount, stream_output_buffer_amount = output_amount) do 
+            #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:191 =#
+            x = #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:191 =# Dagger.@spawn(rand_finite())
+            #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:192 =#
+            y = #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:192 =# Dagger.@spawn(x + 1)
+        end
+    end
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:195 =#
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:195 =# @test fetch(x) === nothing
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:196 =#
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:196 =# @test_throws Dagger.ThunkFailedException fetch(y)
+end
+
+Stacktrace:
+ [1] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:672 [inlined]
+ [2] macro expansion
+   @ /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:186 [inlined]
+ [3] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:1577 [inlined]
+ [4] top-level scope
+   @ /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:51
+1 1
+ExactScope: processor == ThreadProc(1, 1), ExactScope: processor == ThreadProc(1, 2), ExactScope: processor == ThreadProc(1, 3), ExactScope: processor == ThreadProc(1, 4)
+Two tasks (sequential) | W: 1, T: 4: Error During Test at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:92
+  Test threw exception
+  Expression: fetch(x) === nothing
+  SchedulingException (Scheduler exited)
+  Stacktrace:
+   [1] fetch(t::Dagger.ThunkFuture; proc::OSProc, raw::Bool)
+     @ Dagger /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:16
+   [2] fetch
+     @ /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:11 [inlined]
+   [3] #fetch#76
+     @ /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:77 [inlined]
+   [4] fetch(t::Dagger.EagerThunk)
+     @ Dagger /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:73
+   [5] macro expansion
+     @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:669 [inlined]
+   [6] (::var"#21#66"{ExactScope, ExactScope})()
+     @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:92
+Test Summary:                       | Pass  Error  Total   Time
+Two tasks (sequential) | W: 1, T: 4 |    1      1      2  30.5s
+Basics: Test Failed at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:86
+  Expression: test_finishes("Two tasks (sequential) | W: $(wkr_idxs[idx, 4]), T: $(trd_idxs[idx, 4])") do 
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:87 =#
+    local x, y
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:88 =#
+    Dagger.spawn_streaming() do 
+        #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:89 =#
+        x = #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:89 =# Dagger.@spawn(scope = scp1, rand_finite())
+        #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:90 =#
+        y = #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:90 =# Dagger.@spawn(scope = scp2, x + 1)
+    end
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:92 =#
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:92 =# @test fetch(x) === nothing
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:93 =#
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:93 =# @test_throws Dagger.ThunkFailedException fetch(y)
+end
+
+Stacktrace:
+ [1] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:672 [inlined]
+ [2] macro expansion
+   @ /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:86 [inlined]
+ [3] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:1577 [inlined]
+ [4] top-level scope
+   @ /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:51
+Two tasks (parallel) | W: 1, T: 4: Error During Test at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:103
+  Test threw exception
+  Expression: fetch(y) === nothing
+  ThunkFailedException:
+    Root Exception Type: Dagger.Sch.SchedulingException
+    Root Exception:
+  SchedulingException (No processors available, try widening scope)
+    This Thunk:  Thunk(id=51, Dagger.Chunk{Dagger.StreamingFunction{Dagger.Chunk{typeof(rand_finite), MemPool.DRef, OSProc, ExactScope}, Dagger.Stream{Any, Dagger.ProcessRingBuffer}}, MemPool.DRef, OSProc, ExactScope}(Dagger.StreamingFunction{Dagger.Chunk{typeof(rand_finite), MemPool.DRef, OSProc, ExactScope}, Dagger.Stream{Any, Dagger.ProcessRingBuffer}}, UnitDomain(), MemPool.DRef(1, 200, 0x00000000000003a0), OSProc(1), ExactScope: processor == ThreadProc(1, 2), false)())
+  Stacktrace:
+   [1] fetch(t::Dagger.ThunkFuture; proc::OSProc, raw::Bool)
+     @ Dagger /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:16
+   [2] fetch
+     @ /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:11 [inlined]
+   [3] #fetch#76
+     @ /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:77 [inlined]
+   [4] fetch(t::Dagger.EagerThunk)
+     @ Dagger /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:73
+   [5] macro expansion
+     @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:669 [inlined]
+   [6] (::var"#25#70"{ExactScope, ExactScope})()
+     @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:103
+Test Summary:                     | Pass  Error  Total  Time
+Two tasks (parallel) | W: 1, T: 4 |    1      1      2  0.2s
+Three tasks (2 -> 1) | W: 1, T: 4: Error During Test at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:113
+  Test threw exception
+  Expression: fetch(x) === nothing
+  SchedulingException (Scheduler exited)
+  Stacktrace:
+   [1] fetch(t::Dagger.ThunkFuture; proc::OSProc, raw::Bool)
+     @ Dagger /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:16
+   [2] fetch
+     @ /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:11 [inlined]
+   [3] #fetch#76
+     @ /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:77 [inlined]
+   [4] fetch(t::Dagger.EagerThunk)
+     @ Dagger /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:73
+   [5] macro expansion
+     @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:669 [inlined]
+   [6] (::var"#29#74"{ExactScope, ExactScope, ExactScope})()
+     @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:113
+Three tasks (2 -> 1) | W: 1, T: 4: Error During Test at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:114
+  Test threw exception
+  Expression: fetch(y) === nothing
+  ThunkFailedException:
+    Root Exception Type: Dagger.Sch.SchedulingException
+    Root Exception:
+  SchedulingException (No processors available, try widening scope)
+    This Thunk:  Thunk(id=53, Dagger.Chunk{Dagger.StreamingFunction{Dagger.Chunk{typeof(rand_finite), MemPool.DRef, OSProc, ExactScope}, Dagger.Stream{Any, Dagger.ProcessRingBuffer}}, MemPool.DRef, OSProc, ExactScope}(Dagger.StreamingFunction{Dagger.Chunk{typeof(rand_finite), MemPool.DRef, OSProc, ExactScope}, Dagger.Stream{Any, Dagger.ProcessRingBuffer}}, UnitDomain(), MemPool.DRef(1, 214, 0x00000000000003f8), OSProc(1), ExactScope: processor == ThreadProc(1, 2), false)())
+  Stacktrace:
+   [1] fetch(t::Dagger.ThunkFuture; proc::OSProc, raw::Bool)
+     @ Dagger /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:16
+   [2] fetch
+     @ /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:11 [inlined]
+   [3] #fetch#76
+     @ /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:77 [inlined]
+   [4] fetch(t::Dagger.EagerThunk)
+     @ Dagger /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:73
+   [5] macro expansion
+     @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:669 [inlined]
+   [6] (::var"#29#74"{ExactScope, ExactScope, ExactScope})()
+     @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:114
+Test Summary:                     | Pass  Error  Total   Time
+Three tasks (2 -> 1) | W: 1, T: 4 |    1      2      3  30.5s
+Basics: Test Failed at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:106
+  Expression: test_finishes("Three tasks (2 -> 1) | W: $(wkr_idxs[idx, 4]), T: $(trd_idxs[idx, 4])") do 
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:107 =#
+    local x, y, z
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:108 =#
+    Dagger.spawn_streaming() do 
+        #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:109 =#
+        x = #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:109 =# Dagger.@spawn(scope = scp1, rand_finite())
+        #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:110 =#
+        y = #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:110 =# Dagger.@spawn(scope = scp2, rand_finite())
+        #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:111 =#
+        z = #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:111 =# Dagger.@spawn(scope = scp3, x + y)
+    end
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:113 =#
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:113 =# @test fetch(x) === nothing
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:114 =#
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:114 =# @test fetch(y) === nothing
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:115 =#
+    #= /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:115 =# @test_throws Dagger.ThunkFailedException fetch(z)
+end
+
+Stacktrace:
+ [1] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:672 [inlined]
+ [2] macro expansion
+   @ /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:106 [inlined]
+ [3] macro expansion
+   @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:1577 [inlined]
+ [4] top-level scope
+   @ /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:51
+Three tasks (1 -> 2) | W: 1, T: 4: Error During Test at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:125
+  Test threw exception
+  Expression: fetch(x) === nothing
+  SchedulingException (Scheduler exited)
+  Stacktrace:
+   [1] fetch(t::Dagger.ThunkFuture; proc::OSProc, raw::Bool)
+     @ Dagger /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:16
+   [2] fetch
+     @ /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:11 [inlined]
+   [3] #fetch#76
+     @ /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:77 [inlined]
+   [4] fetch(t::Dagger.EagerThunk)
+     @ Dagger /mnt/c/Users/david/development/Dagger.jl/src/eager_thunk.jl:73
+   [5] macro expansion
+     @ ~/.julia/juliaup/julia-1.10.3+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:669 [inlined]
+   [6] (::var"#34#79"{ExactScope, ExactScope, ExactScope})()
+     @ Main /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:125
+Test Summary:                     | Pass  Error  Total   Time
+Three tasks (1 -> 2) | W: 1, T: 4 |    2      1      3  30.5s
+Basics: Test Failed at /mnt/c/Users/david/development/Dagger.jl/test/streaming.jl:118
+  Expression: 
