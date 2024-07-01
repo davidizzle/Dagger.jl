@@ -20,12 +20,16 @@ end
 Base.isempty(cb::ChannelBuffer) = isempty(cb.channel)
 isfull(cb::ChannelBuffer) = cb.count[] == cb.len
 function Base.put!(cb::ChannelBuffer{T}, x) where T
-    put!(cb.channel, convert(T, x))
-    Threads.atomic_add!(cb.count, 1)
+    Dagger.spawn() do
+        put!(cb.channel, convert(T, x))
+        Threads.atomic_add!(cb.count, 1)
+    end
 end
 function Base.take!(cb::ChannelBuffer)
-    take!(cb.channel)
-    Threads.atomic_sub!(cb.count, 1)
+    Dagger.spawn() do
+        take!(cb.channel)
+        Threads.atomic_sub!(cb.count, 1)
+    end
 end
 
 "A cross-worker buffer backed by a `RemoteChannel{T}`."
@@ -39,12 +43,16 @@ end
 Base.isempty(cb::RemoteChannelBuffer) = isempty(cb.channel)
 isfull(cb::RemoteChannelBuffer) = cb.count[] == cb.len
 function Base.put!(cb::RemoteChannelBuffer{T}, x) where T
-    put!(cb.channel, convert(T, x))
-    Threads.atomic_add!(cb.count, 1)
+    Dagger.spawn() do 
+        put!(cb.channel, convert(T, x))
+        Threads.atomic_add!(cb.count, 1)
+    end
 end
 function Base.take!(cb::RemoteChannelBuffer)
-    take!(cb.channel)
-    Threads.atomic_sub!(cb.count, 1)
+    Dagger.spawn() do
+        take!(cb.channel)
+        Threads.atomic_sub!(cb.count, 1)
+    end
 end
 
 "A process-local ring buffer."
@@ -61,24 +69,28 @@ end
 Base.isempty(rb::ProcessRingBuffer) = (@atomic rb.count) == 0
 isfull(rb::ProcessRingBuffer) = (@atomic rb.count) == length(rb.buffer)
 function Base.put!(rb::ProcessRingBuffer{T}, x) where T
-    len = length(rb.buffer)
-    while (@atomic rb.count) == len
-        yield()
+    Dagger.spawn() do 
+        len = length(rb.buffer)
+        while (@atomic rb.count) == len
+            yield()
+        end
+        to_write_idx = mod1(rb.write_idx, len)
+        rb.buffer[to_write_idx] = convert(T, x)
+        rb.write_idx += 1
+        @atomic rb.count += 1
     end
-    to_write_idx = mod1(rb.write_idx, len)
-    rb.buffer[to_write_idx] = convert(T, x)
-    rb.write_idx += 1
-    @atomic rb.count += 1
 end
 function Base.take!(rb::ProcessRingBuffer)
-    while (@atomic rb.count) == 0
-        yield()
+    Dagger.spawn() do
+        while (@atomic rb.count) == 0
+            yield()
+        end
+        to_read_idx = rb.read_idx
+        rb.read_idx += 1
+        @atomic rb.count -= 1
+        to_read_idx = mod1(to_read_idx, length(rb.buffer))
+        return rb.buffer[to_read_idx]
     end
-    to_read_idx = rb.read_idx
-    rb.read_idx += 1
-    @atomic rb.count -= 1
-    to_read_idx = mod1(to_read_idx, length(rb.buffer))
-    return rb.buffer[to_read_idx]
 end
 
 #= TODO
