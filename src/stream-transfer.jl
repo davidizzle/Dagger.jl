@@ -22,7 +22,6 @@ struct MQTT
     MQTT(ip::IPAddr, topic::String) = new(Protocol(ip, 1883), topic)
     MQTT(ip::IPAddr, port::Integer, topic::String) = new(Protocol(ip, port), topic)
 end
-
 # FIXME:
 # Add ZeroMQ support
 #=
@@ -35,6 +34,16 @@ end
 
 struct RemoteFetcher end
 # TODO: Switch to RemoteChannel approach
+
+function _load_val_from_buffer!(buffer, T)
+    values = T[]
+    while !isempty(buffer)
+        value = take!(buffer)::T
+        push!(values, value)
+    end
+    return values
+end
+
 function stream_pull_values!(::Type{RemoteFetcher}, T, store_ref::Chunk{Store_remote}, buffer::Blocal, id::UInt) where {Store_remote, Blocal}
     thunk_id = STREAM_THUNK_ID[]
     @dagdebug thunk_id :stream "fetching values"
