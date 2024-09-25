@@ -1,3 +1,38 @@
+struct Protocol
+    ip::IPAddr
+    port::Integer
+end
+struct TCP
+    protocol::Protocol
+    TCP(ip::IPAddr, port::Integer) = new(Protocol(ip,port))
+end
+struct UDP
+    protocol::Protocol
+    UDP(ip::IPAddr, port::Integer) = new(Protocol(ip,port))
+end
+struct NATS
+    protocol::Protocol
+    topic::String
+    NATS(ip::IPAddr, topic::String) = new(Protocol(ip, 4222), topic)
+    NATS(ip::IPAddr, port::Integer, topic::String) = new(Protocol(ip, port), topic)
+end
+struct MQTT
+    protocol::Protocol
+    topic::String
+    MQTT(ip::IPAddr, topic::String) = new(Protocol(ip, 1883), topic)
+    MQTT(ip::IPAddr, port::Integer, topic::String) = new(Protocol(ip, port), topic)
+end
+
+# FIXME:
+# Add ZeroMQ support
+#=
+struct ZeroMQ
+    protocol::Protocol
+    ZeroMQ(ip::IPAddr, topic::String) = new(Protocol(ip, 1883), topic)
+    ZeroMQ(ip::IPAddr, port::Integer, topic::String) = new(Protocol(ip, port), topic)
+end
+=#
+
 struct RemoteFetcher end
 # TODO: Switch to RemoteChannel approach
 function stream_pull_values!(::Type{RemoteFetcher}, T, store_ref::Chunk{Store_remote}, buffer::Blocal, id::UInt) where {Store_remote, Blocal}
