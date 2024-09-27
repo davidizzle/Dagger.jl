@@ -1,3 +1,5 @@
+using Sockets
+
 abstract type AbstractNetworkTransfer end
 
 struct Protocol <: AbstractNetworkTransfer
@@ -93,12 +95,12 @@ end
 
 # UDP dispatch
 function stream_pull_values!(udp::UDP, T, store_ref::Chunk{Store_remote}, buffer::Blocal, id::UInt) where {Store_remote, Blocal}
-    udpsock = UDPSocket
+    udpsock = UDPSocket()
     Sockets.bind(udpsock, udp.protocol.ip, udp.protocol.port)
 
     values = T[]
-    values = recvfrom(udpsock)
-    data = reinterpret(T, data)
+    sender, data = recvfrom(udpsock)
+    values = reinterpret(T, data)
 
     for value in values
         put!(buffer, value)
