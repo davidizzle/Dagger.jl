@@ -191,9 +191,11 @@ function initialize_input_stream!(our_store::StreamStore{OT,OB}, input_stream::S
         set_tls!(tls)
         STREAM_THUNK_ID[] = thunk_id
         try
+            udp = UDP(ip"127.0.0.1", 8000)
             while isopen(our_store)
                 # FIXME: Make remote fetcher configurable
-                stream_pull_values!(RemoteFetcher, IT, input_stream.store_ref, buffer, our_uid)
+                stream_pull_values!(udp, IT, input_stream.store_ref, buffer, our_uid)
+                # stream_pull_values!(RemoteFetcher, IT, input_stream.store_ref, buffer, our_uid)
             end
         catch err
             err isa InterruptException || rethrow(err)
@@ -215,9 +217,11 @@ function initialize_output_stream!(store::StreamStore{T,B}, output_uid::UInt) wh
     Sch.errormonitor_tracked("streaming output: $our_uid -> $output_uid", Threads.@spawn begin
         set_tls!(tls)
         try
+            udp = UDP(ip"127.0.0.1", 8000)
             while isopen(store)
                 # FIXME: Make remote fetcher configurable
-                stream_push_values!(RemoteFetcher, T, store, buffer, output_uid)
+                # stream_push_values!(RemoteFetcher, T, store, buffer, output_uid)
+                stream_push_values!(udp, T, store, buffer, output_uid)
             end
         catch err
             err isa InterruptException || rethrow(err)
@@ -625,6 +629,8 @@ function finalize_streaming!(tasks::Vector{Pair{DTaskSpec,DTask}}, self_streams)
                     end
                     push!(changes, task.uid)
                 end
+            elseif arg isa AbstractNetworkTransfer
+
             end
         end
 

@@ -1,22 +1,24 @@
-struct Protocol
+abstract type AbstractNetworkTransfer end
+
+struct Protocol <: AbstractNetworkTransfer
     ip::IPAddr
     port::Integer
 end
-struct TCP
+struct TCP <: AbstractNetworkTransfer
     protocol::Protocol
     TCP(ip::IPAddr, port::Integer) = new(Protocol(ip,port))
 end
-struct UDP
+struct UDP <: AbstractNetworkTransfer
     protocol::Protocol
     UDP(ip::IPAddr, port::Integer) = new(Protocol(ip,port))
 end
-struct NATS
+struct NATS <: AbstractNetworkTransfer
     protocol::Protocol
     topic::String
     NATS(ip::IPAddr, topic::String) = new(Protocol(ip, 4222), topic)
     NATS(ip::IPAddr, port::Integer, topic::String) = new(Protocol(ip, port), topic)
 end
-struct MQTT
+struct MQTT <: AbstractNetworkTransfer
     protocol::Protocol
     topic::String
     MQTT(ip::IPAddr, topic::String) = new(Protocol(ip, 1883), topic)
@@ -89,11 +91,10 @@ function stream_push_values!(::Type{RemoteFetcher}, T, store_ref::Store_remote, 
     sleep(1)
 end
 
-
 # UDP dispatch
 function stream_pull_values!(udp::UDP, T, store_ref::Chunk{Store_remote}, buffer::Blocal, id::UInt) where {Store_remote, Blocal}
     udpsock = UDPSocket
-    bind(udpsock, udp.protocol.ip, udp.protocol.port)
+    Sockets.bind(udpsock, udp.protocol.ip, udp.protocol.port)
 
     values = T[]
     values = recvfrom(udpsock)
@@ -102,6 +103,8 @@ function stream_pull_values!(udp::UDP, T, store_ref::Chunk{Store_remote}, buffer
     for value in values
         put!(buffer, value)
     end
+
+    println("Sent with UDP!")
 end
 function stream_push_values!(udp::UDP, T, store, buffer, id::UInt)
     values = _load_val_from_buffer!(buffer, T)
@@ -126,18 +129,18 @@ function stream_pull_values!(tcp::TCP, T, store_ref::Chunk{Store_remote}, buffer
     end
 
     if connection === nothing
-        sleep(5)
+        sleep(1)
         @goto pull_values_TCP
     end
 
-    length = read(connection, sizeof(T))
-    length = reinterpret(UInt64, length)[1]
-    data = read(connection, length * sizeof(T))
+    data = readavailable(connection)
     values = reinterpret(T, data)
 
     for value in values
         put!(buffer, value)
     end
+
+    println("Received with UDP!")
 end
 function stream_push_values!(tcp::TCP, T, store, buffer, id::UInt)
     values = _load_val_from_buffer!(buffer, T)
