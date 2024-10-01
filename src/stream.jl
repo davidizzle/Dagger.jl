@@ -5,6 +5,8 @@ mutable struct StreamStore{T,B}
     output_streams::Dict{UInt,Any} # FIXME: Concrete type
     input_buffers::Dict{UInt,B}
     output_buffers::Dict{UInt,B}
+    input_fetchers::Dict{UInt,Any}
+    output_fetchers::Dict{UInt,Any}
     input_buffer_amount::Int
     output_buffer_amount::Int
     open::Bool
@@ -14,6 +16,7 @@ mutable struct StreamStore{T,B}
         new{T,B}(uid, zeros(Int, 0),
                  Dict{UInt,Any}(), Dict{UInt,Any}(),
                  Dict{UInt,B}(), Dict{UInt,B}(),
+                 Dict{UInt,Any}(), Dict{UInt,Any}(),
                  input_buffer_amount, output_buffer_amount,
                  true, false, Threads.Condition())
 end
@@ -127,13 +130,14 @@ function Base.close(store::StreamStore)
 end
 
 # FIXME: Just pass Stream directly, rather than its uid
-function add_waiters!(store::StreamStore{T,B}, waiters::Vector{UInt}) where {T,B}
+function add_waiters!(store::StreamStore{T,B}, waiters::Vector) where {T,B}
     our_uid = store.uid
     @lock store.lock begin
-        for output_uid in waiters
+        for (output_uid, fetcher) in waiters
             store.output_streams[output_uid] = task_to_stream(output_uid)
+            push!(store.waiters, output_uid)
+            store.output_fetchers[output_uid] = fetcher
         end
-        append!(store.waiters, waiters)
         notify(store.lock)
     end
 end
@@ -144,7 +148,8 @@ function remove_waiters!(store::StreamStore, waiters::Vector{UInt})
             delete!(store.output_buffers, w)
             idx = findfirst(wo->wo==w, store.waiters)
             deleteat!(store.waiters, idx)
-            delete!(store.input_streams, w)
+            delete!(store.output_streams, w)
+            delete!(store.output_fetchers, w)
         end
         notify(store.lock)
     end
@@ -175,7 +180,8 @@ Base.take!(sv::StreamingValue) = take!(sv.buffer)
 function initialize_input_stream!(our_store::StreamStore{OT,OB}, input_stream::Stream{IT,IB}) where {IT,OT,IB,OB}
     input_uid = input_stream.uid
     our_uid = our_store.uid
-    buffer = @lock our_store.lock begin
+    local buffer, fetcher
+    @lock our_store.lock begin
         if haskey(our_store.input_buffers, input_uid)
             return StreamingValue(our_store.input_buffers[input_uid])
         end
@@ -183,7 +189,7 @@ function initialize_input_stream!(our_store::StreamStore{OT,OB}, input_stream::S
         buffer = initialize_stream_buffer(OB, IT, our_store.input_buffer_amount)
         # FIXME: Also pass a RemoteChannel to track remote closure
         our_store.input_buffers[input_uid] = buffer
-        buffer
+        fetcher = our_store.input_fetchers[input_uid]
     end
     thunk_id = STREAM_THUNK_ID[]
     tls = get_tls()
@@ -191,11 +197,8 @@ function initialize_input_stream!(our_store::StreamStore{OT,OB}, input_stream::S
         set_tls!(tls)
         STREAM_THUNK_ID[] = thunk_id
         try
-            udp = UDP(ip"127.0.0.1", 8000)
             while isopen(our_store)
-                # FIXME: Make remote fetcher configurable
-                stream_pull_values!(udp, IT, input_stream.store_ref, buffer, our_uid)
-                # stream_pull_values!(RemoteFetcher, IT, input_stream.store_ref, buffer, our_uid)
+                stream_pull_values!(fetcher, IT, input_stream.store_ref, buffer, our_uid)
             end
         catch err
             err isa InterruptException || rethrow(err)
@@ -211,17 +214,15 @@ function initialize_output_stream!(store::StreamStore{T,B}, output_uid::UInt) wh
     @dagdebug STREAM_THUNK_ID[] :stream "initializing output stream $output_uid"
     buffer = initialize_stream_buffer(B, T, store.output_buffer_amount)
     store.output_buffers[output_uid] = buffer
+    fetcher = store.output_fetchers[output_uid]
     our_uid = store.uid
     thunk_id = STREAM_THUNK_ID[]
     tls = get_tls()
     Sch.errormonitor_tracked("streaming output: $our_uid -> $output_uid", Threads.@spawn begin
         set_tls!(tls)
         try
-            udp = UDP(ip"127.0.0.1", 8000)
             while isopen(store)
-                # FIXME: Make remote fetcher configurable
-                # stream_push_values!(RemoteFetcher, T, store, buffer, output_uid)
-                stream_push_values!(udp, T, store, buffer, output_uid)
+                stream_push_values!(fetcher, T, store, buffer, output_uid)
             end
         catch err
             err isa InterruptException || rethrow(err)
@@ -247,7 +248,7 @@ function Base.close(stream::Stream)
     return
 end
 
-function add_waiters!(stream::Stream, waiters::Vector{UInt})
+function add_waiters!(stream::Stream, waiters::Vector)
     MemPool.access_ref(stream.store_ref.handle, waiters) do store, waiters
         add_waiters!(store::StreamStore, waiters)
         return
@@ -255,7 +256,7 @@ function add_waiters!(stream::Stream, waiters::Vector{UInt})
     return
 end
 
-add_waiters!(stream::Stream, waiter::Integer) = add_waiters!(stream, UInt[waiter])
+#add_waiters!(stream::Stream, waiter::Integer) = add_waiters!(stream, UInt[waiter])
 
 function remove_waiters!(stream::Stream, waiters::Vector{UInt})
     MemPool.access_ref(stream.store_ref.handle, waiters) do store, waiters
@@ -265,7 +266,7 @@ function remove_waiters!(stream::Stream, waiters::Vector{UInt})
     return
 end
 
-remove_waiters!(stream::Stream, waiter::Integer) = remove_waiters!(stream, Int[waiter])
+#remove_waiters!(stream::Stream, waiter::Integer) = remove_waiters!(stream, Int[waiter])
 
 struct StreamingFunction{F, S}
     f::F
@@ -600,14 +601,21 @@ function task_to_stream(uid::UInt)
 end
 
 function finalize_streaming!(tasks::Vector{Pair{DTaskSpec,DTask}}, self_streams)
-    stream_waiter_changes = Dict{UInt,Vector{UInt}}()
+    stream_waiter_changes = Dict{UInt,Vector{Pair{UInt,Any}}}()
 
     for (spec, task) in tasks
         @assert haskey(self_streams, task.uid)
         our_stream = self_streams[task.uid]
 
         # Adapt args to accept Stream output of other streaming tasks
+        # FIXME: Deal with the same task specified multiple times
         for (idx, (pos, arg)) in enumerate(spec.args)
+            fetcher = RemoteFetcher()
+            if arg isa AbstractNetworkTransfer
+                fetcher = new_fetcher(arg)
+                arg = fetcher_task(arg)
+            end
+
             if arg isa DTask
                 # Check if this is a streaming task
                 if haskey(self_streams, arg.uid)
@@ -618,19 +626,17 @@ function finalize_streaming!(tasks::Vector{Pair{DTaskSpec,DTask}}, self_streams)
 
                 if other_stream !== nothing
                     # Generate Stream handle for input
-                    # FIXME: input_fetcher = get(spec.options, :stream_input_fetcher, RemoteFetcher)
                     other_stream_handle = Stream(other_stream)
                     spec.args[idx] = pos => other_stream_handle
                     our_stream.store.input_streams[arg.uid] = other_stream_handle
+                    our_stream.store.input_fetchers[arg.uid] = fetcher
 
                     # Add this task as a waiter for the associated output Stream
                     changes = get!(stream_waiter_changes, arg.uid) do
-                        UInt[]
+                        Pair{UInt,Any}[]
                     end
-                    push!(changes, task.uid)
+                    push!(changes, task.uid => fetcher)
                 end
-            elseif arg isa AbstractNetworkTransfer
-
             end
         end
 

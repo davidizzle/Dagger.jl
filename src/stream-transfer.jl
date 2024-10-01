@@ -4,51 +4,53 @@ abstract type AbstractNetworkTransfer end
 
 struct Protocol <: AbstractNetworkTransfer
     ip::IPAddr
+    # addr::Union{IPAddr, String}
     port::Integer
 end
 struct TCP <: AbstractNetworkTransfer
+    task::Union{DTask, Nothing}
     protocol::Protocol
-    TCP(ip::IPAddr, port::Integer) = new(Protocol(ip,port))
+    TCP(task=nothing; ip::IPAddr, port::Integer) = new(task, Protocol(ip,port))
 end
 struct UDP <: AbstractNetworkTransfer
+    task::Union{DTask, Nothing}
     protocol::Protocol
-    UDP(ip::IPAddr, port::Integer) = new(Protocol(ip,port))
+    UDP(task=nothing; ip::IPAddr, port::Integer) = new(task, Protocol(ip,port))
 end
 struct NATS <: AbstractNetworkTransfer
+    task::Union{DTask, Nothing}
     protocol::Protocol
     topic::String
-    NATS(ip::IPAddr, topic::String) = new(Protocol(ip, 4222), topic)
-    NATS(ip::IPAddr, port::Integer, topic::String) = new(Protocol(ip, port), topic)
+    NATS(task=nothing; ip::IPAddr, port::Integer, topic::String) = new(task, Protocol(ip, port), topic)
 end
 struct MQTT <: AbstractNetworkTransfer
+    task::Union{DTask, Nothing}
     protocol::Protocol
     topic::String
-    MQTT(ip::IPAddr, topic::String) = new(Protocol(ip, 1883), topic)
-    MQTT(ip::IPAddr, port::Integer, topic::String) = new(Protocol(ip, port), topic)
+    MQTT(task=nothing; ip::IPAddr, port::Integer, topic::String) = new(task, Protocol(ip, port), topic)
 end
-# FIXME:
-# Add ZeroMQ support
 #=
-struct ZeroMQ
+struct ZeroMQ <: AbstractNetworkTransfer
+    task::Union{DTask, Nothing}
     protocol::Protocol
-    ZeroMQ(ip::IPAddr, topic::String) = new(Protocol(ip, 1883), topic)
-    ZeroMQ(ip::IPAddr, port::Integer, topic::String) = new(Protocol(ip, port), topic)
+    topic::String
+    ZeroMQ(task=nothing; ip::IPAddr, topic::String) = new(task, Protocol(ip, 1883), topic)
+    ZeroMQ(task=nothing; ip::IPAddr, port::Integer, topic::String) = new(task, Protocol(ip, port), topic)
 end
 =#
-
 struct RemoteFetcher end
 # TODO: Switch to RemoteChannel approach
 
-function _load_val_from_buffer!(buffer, T)
-    values = T[]
-    while !isempty(buffer)
-        value = take!(buffer)::T
-        push!(values, value)
-    end
-    return values
-end
+#function _load_val_from_buffer!(buffer, T)
+#    values = T[]
+#    while !isempty(buffer)
+#        value = take!(buffer)::T
+#        push!(values, value)
+#    end
+#    return values
+#end
 
-function stream_pull_values!(::Type{RemoteFetcher}, T, store_ref::Chunk{Store_remote}, buffer::Blocal, id::UInt) where {Store_remote, Blocal}
+function stream_pull_values!(::RemoteFetcher, T, store_ref::Chunk{Store_remote}, buffer::Blocal, id::UInt) where {Store_remote, Blocal}
     thunk_id = STREAM_THUNK_ID[]
     @dagdebug thunk_id :stream "fetching values"
 
@@ -89,34 +91,76 @@ function stream_pull_values!(::Type{RemoteFetcher}, T, store_ref::Chunk{Store_re
         put!(buffer, value)
     end
 end
-function stream_push_values!(::Type{RemoteFetcher}, T, store_ref::Store_remote, buffer::Blocal, id::UInt) where {Store_remote, Blocal}
+function stream_push_values!(::RemoteFetcher, T, store_ref::Store_remote, buffer::Blocal, id::UInt) where {Store_remote, Blocal}
     sleep(1)
 end
 
 # UDP dispatch
+new_fetcher(udp::UDP) = UDP(;ip=udp.protocol.ip, port=udp.protocol.port)
+fetcher_task(udp::UDP) = udp.task::DTask
 function stream_pull_values!(udp::UDP, T, store_ref::Chunk{Store_remote}, buffer::Blocal, id::UInt) where {Store_remote, Blocal}
+
+    thunk_id = STREAM_THUNK_ID[]
+    @dagdebug thunk_id :stream "fetching values"
+
     udpsock = UDPSocket()
     Sockets.bind(udpsock, udp.protocol.ip, udp.protocol.port)
 
-    values = T[]
-    sender, data = recvfrom(udpsock)
-    values = reinterpret(T, data)
+    while true
+        free_space = length(buffer.buffer) - length(buffer)
+        if free_space == 0
+            yield()
+            task_may_cancel!()
+            continue
+        end
 
-    for value in values
-        put!(buffer, value)
+        values = T[]
+        sender, data = recvfrom(udpsock)
+
+        if length(data) == 0
+            @dagdebug thunk_id :stream "No data received"
+            yield()
+            task_may_cancel!()
+            continue
+        end
+
+        values = reinterpret(T, data)
+        @dagdebug thunk_id :stream "fetched $(length(values)) values"
+        for value in values
+            put!(buffer, value)
+        end
+        println("Received with UDP!")
     end
-
-    println("Sent with UDP!")
+    close(udpsock)
 end
-function stream_push_values!(udp::UDP, T, store, buffer, id::UInt)
-    values = _load_val_from_buffer!(buffer, T)
+function stream_push_values!(udp::UDP, T, store, buffer::Blocal, id::UInt) where {Blocal}
+    # values = _load_val_from_buffer!(buffer, T)
+    thunk_id = STREAM_THUNK_ID[]
+    @dagdebug thunk_id :stream "pushing values"
     udpsock = UDPSocket()
-    send(udpsock, udp.protocol.ip, udp.protocol.port, values)
+    while true
+        if isempty(buffer)
+            yield()
+            task_may_cancel!()
+            continue
+        end
+        values = T[]
+        value = take!(buffer)::T
+        push!(values, value)
+        send(udpsock, udp.protocol.ip, udp.protocol.port, values)
+        @dagdebug thunk_id :stream "pushed $(length(values)) values"
+        println("Sent with UDP!")
+    end
     close(udpsock)
 end
 
 # TCP dispatch
+new_fetcher(tcp::TCP) = TCP(;ip=tcp.protocol.ip, port=tcp.protocol.port)
+fetcher_task(tcp::TCP) = tcp.task::DTask
 function stream_pull_values!(tcp::TCP, T, store_ref::Chunk{Store_remote}, buffer::Blocal, id::UInt) where {Store_remote, Blocal}
+    thunk_id = STREAM_THUNK_ID[]
+    @dagdebug thunk_id :stream "fetching values"
+    connection = nothing
     @label pull_values_TCP
     try
         server = listen(tcp.protocol.ip, tcp.protocol.port)
@@ -135,17 +179,34 @@ function stream_pull_values!(tcp::TCP, T, store_ref::Chunk{Store_remote}, buffer
         @goto pull_values_TCP
     end
 
-    data = readavailable(connection)
-    values = reinterpret(T, data)
+    while true
 
-    for value in values
-        put!(buffer, value)
+        free_space = length(buffer.buffer) - length(buffer)
+        if free_space == 0
+            yield()
+            task_may_cancel!()
+            continue
+        end
+
+        values = T[]
+        data = readavailable(connection)
+        values = reinterpret(T, data)
+        @dagdebug thunk_id :stream "fetched $(length(values)) values"
+
+        for value in values
+            put!(buffer, value)
+        end
+        println("Received with TCP!")
     end
 
-    println("Received with UDP!")
+    close(connection)
 end
 function stream_push_values!(tcp::TCP, T, store, buffer, id::UInt)
-    values = _load_val_from_buffer!(buffer, T)
+    thunk_id = STREAM_THUNK_ID[]
+    @dagdebug thunk_id :stream "pushing values"
+
+    # values = _load_val_from_buffer!(buffer, T)
+    connection = nothing
     @label push_values_TCP
     try
         connection = connect(tcp.protocol.ip, tcp.protocol.port)
@@ -160,13 +221,27 @@ function stream_push_values!(tcp::TCP, T, store, buffer, id::UInt)
     if connection === nothing
         @goto push_values_TCP
     end
-    write(connection, length(values))
-    write(connection, values)
+    # write(connection, length(values))
+    while true
+        if isempty(buffer)
+            yield()
+            task_may_cancel!()
+            continue
+        end
+        values = T[]
+        value = take!(buffer)::T
+        push!(values, value)
+        write(connection, values)
+    end
     close(connection)
 end
 
 # NATS dispatch
+new_fetcher(nats::NATS) = NATS(;ip=nats.protocol.ip, port=nats.protocol.port, topic=nats.topic)
+fetcher_task(nats::NATS) = nats.task::DTask
 function stream_pull_values!(nats::NATS, T, store_ref::Chunk{Store_remote}, buffer::Blocal, id::UInt) where {Store_remote, Blocal}
+
+    nc = nothing
     @label pull_values_NATS
     try
         nc = NATS.connect("nats://$(nats.protocol.ip):$(nats.protocol.port)")
@@ -176,29 +251,39 @@ function stream_pull_values!(nats::NATS, T, store_ref::Chunk{Store_remote}, buff
     end
 
     if nc === nothing
-        sleep(5)
+        sleep(1)
         @goto pull_values_NATS
     end
 
     function msg_handler(msg, T, buffer::Blocal)
-        data = Vector{UInt8}(msg.payload)
-        iob = IOBuffer(data)
-        length = read(buf, Int)
+        # data = Vector{UInt8}(msg.payload)
+        iob = IOBuffer()
+        # length = read(buf, Int)
 
-        value_data = read(iob, sizeof(T) * length)
+        # value_data = read(iob, sizeof(T) * length)
+        value_data = read(iob)
         values = reinterpret(T, value_data)
 
         for value in values
             put!(buffer, value)
         end
     end
-
-    sub = subscribe(msg_handler, nc, nats.topic)
+    while true
+        free_space = length(buffer.buffer) - length(buffer)
+        if free_space == 0
+            yield()
+            task_may_cancel!()
+            continue
+        end
+        sub = subscribe(msg_handler, nc, nats.topic)
+    end
 end
 function stream_push_values!(nats::NATS, T, store, buffer, id::UInt)
-    values = _load_val_from_buffer!(buffer, T)
+    # values = _load_val_from_buffer!(buffer, T)
+    nc = nothing
     @label push_values_NATS
     try
+        println("nats://$(nats.protocol.ip):$(nats.protocol.port)")
         nc = NATS.connect("nats://$(nats.protocol.ip):$(nats.protocol.port)")
     catch e
         println("Failed connecting to NATS at $(nats.protocol.ip):$(nats.protocol.port).")
@@ -206,19 +291,31 @@ function stream_push_values!(nats::NATS, T, store, buffer, id::UInt)
     end
 
     if nc === nothing
-        sleep(5)
+        sleep(1)
         @goto push_values_NATS
     end
-
-    iob = IOBuffer()
-    write(iob, length(values))
-    write(iob, values)
-    data = String(take!(iob))
-    publish(nc, nats.topic, data)
+    while true
+        if isempty(buffer)
+            yield()
+            task_may_cancel!()
+            continue
+        end
+        iob = IOBuffer()
+        # write(iob, length(values))
+        values = T[]
+        value = take!(buffer)::T
+        push!(values, value)
+        write(iob, values)
+        data = String(take!(iob))
+        publish(nc, nats.topic, data)
+    end
 end
-
 # MQTT dispatch
+new_fetcher(mqtt::MQTT) = MQTT(;ip=mqtt.protocol.ip, port=mqtt.protocol.port, topic=mqtt.topic)
+fetcher_task(mqtt::MQTT) = mqtt.task::DTask
 function stream_pull_values!(mqtt::MQTT, T, store_ref::Chunk{Store_remote}, buffer::Blocal, id::UInt) where {Store_remote, Blocal}
+    
+    client = nothing
     @label pull_values_MQTT
     try
         client = Mosquitto.Client(mqtt.protocol.ip, mqtt.protocol.port)
@@ -227,24 +324,33 @@ function stream_pull_values!(mqtt::MQTT, T, store_ref::Chunk{Store_remote}, buff
         client = nothing
     end
     if client === nothing
-        sleep(5)
+        sleep(1)
         @goto pull_values_MQTT
     end
     subscribe(client, mqtt.topic)
+    while true
+        free_space = length(buffer.buffer) - length(buffer)
+        if free_space == 0
+            yield()
+            task_may_cancel!()
+            continue
+        end
 
-    Mosquitto.loop(client; timeout=500, ntimes=10)
-    msg_channel = get_messages_channel(client)
+        Mosquitto.loop(client; timeout=500, ntimes=10)
+        msg_channel = get_messages_channel(client)
 
-    while !isempty(msg_channel)
-        msg = take!(msg_channel)
-        data = reinterpret(T, msg.payload)
-        for value in data
-            put!(buffer,data)
+        while !isempty(msg_channel)
+            msg = take!(msg_channel)
+            data = reinterpret(T, msg.payload)
+            for value in data
+                put!(buffer,data)
+            end
         end
     end
 end
 function stream_push_values!(mqtt::MQTT, T, store, buffer, id::UInt)
-    values = _load_val_from_buffer!(buffer, T)
+    # values = _load_val_from_buffer!(buffer, T)
+    client = nothing
     @label push_values_MQTT
     try
         client = Mosquitto.Client(mqtt.protocol.ip, mqtt.protocol.port)
@@ -253,41 +359,61 @@ function stream_push_values!(mqtt::MQTT, T, store, buffer, id::UInt)
         client = nothing
     end
     if client === nothing
-        sleep(5)
+        sleep(1)
         @goto push_values_MQTT
     end
-    data = reinterpret(UInt8, values)
-    publish(client, mqtt.topic, data; retain=true)
-end
+    while true
+        if isempty(buffer)
+            yield()
+            task_may_cancel!()
+            continue
+        end
+        values = T[]
+        value = take!(buffer)::T
+        push!(values, value)
+        data = reinterpret(UInt8, values)
+        publish(client, mqtt.topic, data; retain=true)
 
+    end
+end
+#= 
 # FIXME:
 # Add ZeroMQ dispatch
 # ZeroMQ dispatch
-#=
-function stream_push_values!(zeromq::ZeroMQ, T, store, buffer, id::UInt)
-    values = _load_val_from_buffer!(buffer, T)
-    socket = Socket(Context(), REP)
-    @label push_values_MQTT
+new_fetcher(zmq::ZerMQ) = ZerMQ(;ip=zmq.protocol.ip, port=zmq.protocol.port, topic=zmq.topic)
+fetcher_task(zmq::ZerMQ) = zmq.task::DTask
+function stream_push_values!(zmq::ZeroMQ, T, store, buffer, id::UInt)
+    # values = _load_val_from_buffer!(buffer, T)
+    context = Context()
+    socket = Socket(Context(), PUB)
+    @label push_values_ZMQ
     try
-        connect(socket, "tcp::$(zeromq.protocol.ip):$(zeromq.protocol.port)")
+        bind(socket, "tcp::$(zmq.protocol.ip):$(zmq.protocol.port)")
     catch e
-        println("Failed connecting via ZeroMQ to $(zeromq.protocol.ip):$(zeromq.protocol.port).")
+        println("Failed connecting via ZeroMQ to $(zmq.protocol.ip):$(zmq.protocol.port).")
         socket = nothing
     end
     if socket === nothing
         sleep(5)
-        @goto push_values_MQTT
+        @goto push_values_ZMQ
     end
-    send(socket, values)
+    while true
+        if isempty(buffer)
+            yield()
+            task_may_cancel!()
+            continue
+        end
+        send(socket, values)
+    
     close(socket)
 end
-function stream_pull_values!(zeromq::ZeroMQ, T, store_ref::Chunk{Store_remote}, buffer::Blocal, id::UInt) where {Store_remote, Blocal}
+function stream_pull_values!(zmq::ZeroMQ, T, store_ref::Chunk{Store_remote}, buffer::Blocal, id::UInt) where {Store_remote, Blocal}
     socket = Socket(Context(), REQ)
     @label pull_values_MQTT
     try
-        bind(socket, "tcp::$(zeromq.protocol.ip):$(zeromq.protocol.port)")
+        bind(socket, "tcp::$(zmq.protocol.ip):$(zmq.protocol.port)")
     catch e
-        println("Failed connecting via ZeroMQ to $(zeromq.protocol.ip):$(zeromq.protocol.port).")
+        println("Failed connecting via ZeroMQ to $(zmq.protocol.ip):$(zmq.protocol.port).")
         socket = nothing
     end
     if socket === nothing
